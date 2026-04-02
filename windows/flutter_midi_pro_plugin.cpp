@@ -221,6 +221,39 @@ void FlutterMidiProPlugin::HandleMethodCall(
     return;
   }
 
+  if (method_name == "selectInstrument") {
+    auto sfid_opt = GetIntArg(args, "sfId");
+    auto channel_opt = GetIntArg(args, "channel");
+    auto bank_opt = GetIntArg(args, "bank");
+    auto program_opt = GetIntArg(args, "program");
+
+    if (!sfid_opt || !channel_opt || !bank_opt || !program_opt) {
+      result->Error("bad_args", "Missing sfId/channel/bank/program");
+      return;
+    }
+
+    int rc = fluid_synth_program_select(
+        synth_,
+        *channel_opt,
+        *sfid_opt,
+        *bank_opt,
+        *program_opt);
+
+    if (rc == FLUID_FAILED) {
+      result->Error("program_select_failed", "Failed to select instrument");
+      return;
+    }
+
+    std::cout << "[flutter_midi_pro] program selected "
+              << "sfid=" << *sfid_opt
+              << " ch=" << *channel_opt
+              << " bank=" << *bank_opt
+              << " prog=" << *program_opt << "\n";
+
+    result->Success();
+    return;
+  }
+
   if (method_name == "playNote") {
     auto key_opt = GetIntArg(args, "key");
     auto velocity_opt = GetIntArg(args, "velocity");
