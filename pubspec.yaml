@@ -31,6 +31,8 @@ flutter:
         pluginClass: FlutterMidiProPlugin
       macos:
         pluginClass: FlutterMidiProPlugin
+      windows:
+        pluginClass: FlutterMidiProPluginCApi
 
 topics:
   - midi
