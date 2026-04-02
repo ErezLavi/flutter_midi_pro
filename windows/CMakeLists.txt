@@ -46,7 +46,14 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 # dependencies here.
 target_include_directories(${PLUGIN_NAME} INTERFACE
   "${CMAKE_CURRENT_SOURCE_DIR}/include")
-target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
+target_include_directories(${PLUGIN_NAME} PRIVATE
+  "C:/Users/erez1/vcpkg/installed/x64-windows/include"
+)
+target_link_libraries(${PLUGIN_NAME} PRIVATE
+  flutter
+  flutter_wrapper_plugin
+  "C:/Users/erez1/vcpkg/installed/x64-windows/lib/libfluidsynth-3.lib"
+)
 
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
@@ -83,6 +90,12 @@ FetchContent_MakeAvailable(googletest)
 add_executable(${TEST_RUNNER}
   test/flutter_midi_pro_plugin_test.cpp
   ${PLUGIN_SOURCES}
+)
+target_include_directories(${TEST_RUNNER} PRIVATE
+  "C:/Users/erez1/vcpkg/installed/x64-windows/include"
+)
+target_link_libraries(${TEST_RUNNER} PRIVATE
+  "C:/Users/erez1/vcpkg/installed/x64-windows/lib/libfluidsynth-3.lib"
 )
 apply_standard_settings(${TEST_RUNNER})
 target_include_directories(${TEST_RUNNER} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
