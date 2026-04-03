@@ -1,59 +1,10 @@
-#include "include/flutter_midi_pro/flutter_midi_pro_plugin_c_api.h"
+#include "flutter_midi_pro_plugin.h"
 
-#include <flutter/method_channel.h>
-#include <flutter/plugin_registrar_windows.h>
 #include <flutter/standard_method_codec.h>
 
-#include <fluidsynth.h>
-
-#include <map>
-#include <memory>
-#include <optional>
-#include <string>
 #include <iostream>
 
 namespace flutter_midi_pro {
-class FlutterMidiProPlugin : public flutter::Plugin {
- public:
-  static void RegisterWithRegistrar(flutter::PluginRegistrarWindows *registrar);
-
-  FlutterMidiProPlugin();
-  virtual ~FlutterMidiProPlugin();
-
-  FlutterMidiProPlugin(const FlutterMidiProPlugin&) = delete;
-  FlutterMidiProPlugin& operator=(const FlutterMidiProPlugin&) = delete;
-
- public:
-  void HandleMethodCall(
-      const flutter::MethodCall<flutter::EncodableValue> &method_call,
-      std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result);
-
-  bool InitializeSynth();
-  void ShutdownSynth();
-
-  std::optional<int> GetIntArg(
-      const flutter::EncodableMap* args,
-      const std::string& key) const;
-
-  std::optional<std::string> GetStringArg(
-      const flutter::EncodableMap* args,
-      const std::string& key) const;
-
-  bool HasSoundfontId(int sfid) const;
-  int ResolveChannelForSoundfont(int channel, int sfid);
-
- private:
-  fluid_settings_t* settings_ = nullptr;
-  fluid_synth_t* synth_ = nullptr;
-  fluid_audio_driver_t* audio_driver_ = nullptr;
-
-  // Track loaded soundfonts returned by fluid_synth_sfload.
-  std::map<int, std::string> loaded_soundfonts_;
-
-  // Optional mapping: channel -> currently selected sfid.
-  // This lets sfId stay meaningful without changing the Dart API.
-  std::map<int, int> channel_to_sfid_;
-};
 
 FlutterMidiProPlugin::FlutterMidiProPlugin() {
   InitializeSynth();
@@ -120,7 +71,6 @@ bool FlutterMidiProPlugin::InitializeSynth() {
 
 void FlutterMidiProPlugin::ShutdownSynth() {
   loaded_soundfonts_.clear();
-  channel_to_sfid_.clear();
 
   if (audio_driver_) {
     delete_fluid_audio_driver(audio_driver_);
@@ -146,8 +96,12 @@ std::optional<int> FlutterMidiProPlugin::GetIntArg(
   auto it = args->find(flutter::EncodableValue(key));
   if (it == args->end()) return std::nullopt;
 
-  if (const int* value = std::get_if<int>(&it->second)) {
+  if (const int32_t* value = std::get_if<int32_t>(&it->second)) {
     return *value;
+  }
+
+  if (const int64_t* value = std::get_if<int64_t>(&it->second)) {
+    return static_cast<int>(*value);
   }
 
   return std::nullopt;
@@ -170,17 +124,6 @@ std::optional<std::string> FlutterMidiProPlugin::GetStringArg(
 
 bool FlutterMidiProPlugin::HasSoundfontId(int sfid) const {
   return loaded_soundfonts_.find(sfid) != loaded_soundfonts_.end();
-}
-
-int FlutterMidiProPlugin::ResolveChannelForSoundfont(int channel, int sfid) {
-  // Minimal behavior:
-  // - If a valid sfId is provided, bind that sfId to the channel.
-  // - FluidSynth programs are channel-based, not per-note soundfont-based.
-  // - This preserves sfId semantics in a practical way for Windows.
-  if (HasSoundfontId(sfid)) {
-    channel_to_sfid_[channel] = sfid;
-  }
-  return channel;
 }
 
 void FlutterMidiProPlugin::HandleMethodCall(
@@ -258,8 +201,6 @@ void FlutterMidiProPlugin::HandleMethodCall(
     auto key_opt = GetIntArg(args, "key");
     auto velocity_opt = GetIntArg(args, "velocity");
     auto channel_opt = GetIntArg(args, "channel");
-    auto sfid_opt = GetIntArg(args, "sfId");
-
     if (!key_opt || !velocity_opt || !channel_opt) {
       result->Error("bad_args", "Missing key/velocity/channel");
       return;
@@ -268,9 +209,6 @@ void FlutterMidiProPlugin::HandleMethodCall(
     int key = *key_opt;
     int velocity = *velocity_opt;
     int channel = *channel_opt;
-    int sfid = sfid_opt.value_or(-1);
-
-    ResolveChannelForSoundfont(channel, sfid);
 
     int rc = fluid_synth_noteon(synth_, channel, key, velocity);
     if (rc == FLUID_FAILED) {
@@ -280,8 +218,7 @@ void FlutterMidiProPlugin::HandleMethodCall(
 
     std::cout << "[flutter_midi_pro] noteon ch=" << channel
               << " key=" << key
-              << " vel=" << velocity
-              << " sfid=" << sfid << "\n";
+              << " vel=" << velocity << "\n";
 
     result->Success();
     return;
