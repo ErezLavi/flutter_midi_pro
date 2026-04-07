@@ -18,40 +18,12 @@ public class FlutterMidiProPlugin: NSObject, FlutterPlugin {
   
   public override init() {
     super.init()
-    setupAudioEngineNotifications()
   }
   
   deinit {
     NotificationCenter.default.removeObserver(self)
   }
   
-  private func setupAudioEngineNotifications() {
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(handleAudioEngineConfigChange),
-      name: .AVAudioEngineConfigurationChange,
-      object: nil
-    )
-  }
-  
-  @objc private func handleAudioEngineConfigChange(notification: Notification) {
-    restartAudioEngines()
-  }
-  
-  private func restartAudioEngines() {
-    for (sfId, engines) in audioEngines {
-      for (index, engine) in engines.enumerated() {
-        if !engine.isRunning {
-          do {
-            try engine.start()
-          } catch {
-            print("Failed to restart audio engine for sfId \(sfId), channel \(index): \(error)")
-          }
-        }
-      }
-    }
-  }
-
   public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
     case "loadSoundfont":
